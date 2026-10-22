@@ -5,6 +5,7 @@ import {
   DayPlan,
   Expense,
   Itinerary,
+  JournalEntry,
   Trip,
   TripMemory,
 } from "@/lib/trips/types";
@@ -201,6 +202,7 @@ export interface SeedData {
   expenses: Expense[];
   memories: TripMemory[];
   commandLogs: AICommandLog[];
+  journalEntries: JournalEntry[];
 }
 
 export function buildSeedData(ownerId: string): SeedData {
@@ -366,5 +368,38 @@ export function buildSeedData(ownerId: string): SeedData {
     },
   ];
 
-  return { trips, itineraries, expenses, memories, commandLogs };
+  const journalEntries: JournalEntry[] = [
+    {
+      id: nanoid(8),
+      tripId: goaTripId,
+      dayNumber: 1,
+      note: "Beach was perfect, water a little cold in the morning. Shack lunch was the highlight.",
+      mood: "amazing",
+      photoDataUrl: null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: nanoid(8),
+      tripId: jaipurTripId,
+      dayNumber: 1,
+      note: "Amber Fort before the heat hit — glad we went early. Legs are tired but worth it.",
+      mood: "good",
+      photoDataUrl: null,
+      createdAt: new Date(Date.now() - 86400000 * 11).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 11).toISOString(),
+    },
+    {
+      id: nanoid(8),
+      tripId: jaipurTripId,
+      dayNumber: 2,
+      note: "Shopping morning, bought more than planned. Train back in the evening.",
+      mood: "tired",
+      photoDataUrl: null,
+      createdAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+      updatedAt: new Date(Date.now() - 86400000 * 10).toISOString(),
+    },
+  ];
+
+  return { trips, itineraries, expenses, memories, commandLogs, journalEntries };
 }

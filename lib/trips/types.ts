@@ -166,6 +166,27 @@ export interface Feedback {
   comment: string;
 }
 
+export type Mood = "amazing" | "good" | "okay" | "tired" | "rainy";
+
+export interface JournalEntry {
+  id: string;
+  tripId: string;
+  dayNumber: number;
+  note: string;
+  mood: Mood | null;
+  photoDataUrl: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PackingItem {
+  id: string;
+  tripId: string;
+  label: string;
+  category: string;
+  checked: boolean;
+}
+
 export interface User {
   id: string;
   name: string;

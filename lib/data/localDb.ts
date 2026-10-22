@@ -5,6 +5,8 @@ import {
   Expense,
   Feedback,
   Itinerary,
+  JournalEntry,
+  PackingItem,
   PlaceReport,
   Trip,
   TripMemory,
@@ -28,6 +30,8 @@ export interface AppData {
   placeReports: PlaceReport[];
   adminAuditLog: AdminAuditEntry[];
   loginAttempts: Record<string, { count: number; lockedUntil: string | null }>; // keyed by email
+  journalEntries: JournalEntry[];
+  packingItems: PackingItem[];
 }
 
 const STORAGE_KEY = "ai-travel-companion:data:v1";
@@ -40,6 +44,7 @@ function buildFreshData(): AppData {
     expenses: seed.expenses,
     memories: seed.memories,
     commandLogs: seed.commandLogs,
+    journalEntries: seed.journalEntries,
     feedback: [],
     users: DEMO_USERS.map((u) => ({ ...u })),
     settings: { ...DEFAULT_APP_SETTINGS },
@@ -49,6 +54,7 @@ function buildFreshData(): AppData {
     placeReports: [],
     adminAuditLog: [],
     loginAttempts: {},
+    packingItems: [],
   };
 }
 
@@ -94,15 +100,26 @@ export function readData(): AppData {
       placeReports: parsed.placeReports ?? [],
       adminAuditLog: parsed.adminAuditLog ?? [],
       loginAttempts: parsed.loginAttempts ?? {},
+      journalEntries: parsed.journalEntries ?? [],
+      packingItems: parsed.packingItems ?? [],
     };
   } catch {
     return buildFreshData();
   }
 }
 
+/** Thrown when localStorage is full (photos make this the one realistic way to hit the quota). */
+export class StorageQuotaError extends Error {}
+
 export function writeData(data: AppData): void {
   if (!isBrowser()) return;
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    throw new StorageQuotaError(
+      "This browser's storage is full. Try removing a journal photo or resetting demo data."
+    );
+  }
 }
 
 export function updateData(mutator: (data: AppData) => AppData): AppData {

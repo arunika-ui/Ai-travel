@@ -22,6 +22,8 @@ import { PlacesSearch } from "@/components/places/PlacesSearch";
 import { ShareButton } from "@/components/trip/ShareButton";
 import { FeedbackPanel } from "@/components/trip/FeedbackPanel";
 import { CollaboratorsPanel } from "@/components/trip/CollaboratorsPanel";
+import { JournalTab } from "@/components/journal/JournalTab";
+import { PackingTab } from "@/components/journal/PackingTab";
 import { AgentStep } from "@/lib/ai/TravelAgent";
 import { deleteTrip, duplicateTrip } from "@/lib/trips/tripLifecycle";
 import { getCurrentUser } from "@/lib/trips/auth";
@@ -29,7 +31,7 @@ import { getGenerationCountToday, incrementGenerationCountToday } from "@/lib/tr
 import { getSettings } from "@/lib/trips/settings";
 import { getWeatherForecast } from "@/lib/mock-data/weather";
 
-type Tab = "itinerary" | "map" | "expenses" | "chat" | "memory" | "history";
+type Tab = "itinerary" | "map" | "expenses" | "chat" | "memory" | "history" | "journal" | "packing";
 
 export function TripWorkspace({ tripId }: { tripId: string }) {
   const router = useRouter();
@@ -278,6 +280,8 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
             {tab === "chat" && !readOnly && <ChatPanel trip={trip} days={days} onDaysUpdated={handleDaysUpdated} />}
             {tab === "memory" && !readOnly && <MemoryPanel tripId={trip.id} />}
             {tab === "history" && !readOnly && <CommandHistory tripId={trip.id} />}
+            {tab === "journal" && <JournalTab trip={trip} days={days} readOnly={readOnly} />}
+            {tab === "packing" && <PackingTab trip={trip} readOnly={readOnly} />}
           </div>
 
           {readOnly && status === "COMPLETED" && (
@@ -295,6 +299,8 @@ function tabList(readOnly: boolean): [Tab, string][] {
   const base: [Tab, string][] = [
     ["itinerary", "Itinerary"],
     ["map", "Map"],
+    ["journal", "Journal"],
+    ["packing", "Packing"],
   ];
   if (readOnly) return base;
   return [...base, ["expenses", "Expenses"], ["chat", "AI Chat"], ["memory", "Memory"], ["history", "History"]];
