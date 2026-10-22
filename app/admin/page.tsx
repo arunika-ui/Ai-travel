@@ -8,23 +8,31 @@ import { readData } from "@/lib/data/localDb";
 import { listUsers, setUserActive } from "@/lib/trips/auth";
 import { getSettings, updateSettings } from "@/lib/trips/settings";
 import { averageRating } from "@/lib/trips/feedback";
-import { AppSettings, User } from "@/lib/trips/types";
+import { listAdminAuditLog, logAdminAction } from "@/lib/trips/auditLog";
+import { listPlaceReports } from "@/lib/trips/report";
+import { AdminAuditEntry, AppSettings, PlaceReport, User } from "@/lib/trips/types";
 
 export default function AdminPage() {
   return (
     <AuthGuard requireAdmin>
-      {() => <AdminContent />}
+      {(user) => <AdminContent adminId={user.id} />}
     </AuthGuard>
   );
 }
 
-function AdminContent() {
+function AdminContent({ adminId }: { adminId: string }) {
   const [users, setUsers] = useState<User[]>([]);
   const [tripCount, setTripCount] = useState(0);
   const [commandsByDay, setCommandsByDay] = useState<[string, number][]>([]);
   const [toolUsage, setToolUsage] = useState<[string, number][]>([]);
   const [rating, setRating] = useState(0);
-  const [settings, setSettings] = useState<AppSettings>({ maxToolCallsPerCommand: 5, dailyAICommandLimit: 20 });
+  const [settings, setSettings] = useState<AppSettings>({
+    maxToolCallsPerCommand: 5,
+    dailyAICommandLimit: 50,
+    dailyItineraryGenerationLimit: 5,
+  });
+  const [auditLog, setAuditLog] = useState<AdminAuditEntry[]>([]);
+  const [placeReports, setPlaceReports] = useState<PlaceReport[]>([]);
 
   function refresh() {
     const data = readData();
@@ -32,6 +40,8 @@ function AdminContent() {
     setTripCount(data.trips.length);
     setRating(averageRating());
     setSettings(getSettings());
+    setAuditLog(listAdminAuditLog());
+    setPlaceReports(listPlaceReports());
 
     const byDay = new Map<string, number>();
     const byTool = new Map<string, number>();
@@ -52,12 +62,18 @@ function AdminContent() {
 
   function handleToggleUser(user: User) {
     setUserActive(user.id, !user.active);
+    logAdminAction(adminId, user.active ? "Suspended user" : "Activated user", user.email);
     refresh();
   }
 
   function handleSettingsSave(e: React.FormEvent) {
     e.preventDefault();
     updateSettings(settings);
+    logAdminAction(
+      adminId,
+      "Updated AI agent settings",
+      `maxToolCallsPerCommand=${settings.maxToolCallsPerCommand}, dailyAICommandLimit=${settings.dailyAICommandLimit}, dailyItineraryGenerationLimit=${settings.dailyItineraryGenerationLimit}`
+    );
     refresh();
   }
 
@@ -68,7 +84,7 @@ function AdminContent() {
     <>
       <SiteHeader />
       <main id="main-content" className="mx-auto max-w-5xl px-4 py-8">
-        <h1 className="text-2xl font-bold text-slate-900">Admin console</h1>
+        <h1 className="font-serif text-3xl text-ink">Admin console</h1>
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Trips created" value={tripCount} />
@@ -147,8 +163,10 @@ function AdminContent() {
 
         <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
           <h2 className="font-semibold text-slate-900">AI agent settings</h2>
-          <p className="mt-1 text-sm text-slate-600">These limits are enforced live by the chat agent.</p>
-          <form onSubmit={handleSettingsSave} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <p className="mt-1 text-sm text-slate-600">
+            These limits are enforced live by the chat agent and the itinerary generator (BR-9, FR-11.4).
+          </p>
+          <form onSubmit={handleSettingsSave} className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <div>
               <label htmlFor="maxToolCalls" className="block text-sm font-medium text-slate-700">
                 Max tool calls per command
@@ -165,25 +183,73 @@ function AdminContent() {
             </div>
             <div>
               <label htmlFor="dailyLimit" className="block text-sm font-medium text-slate-700">
-                Daily AI command limit (per user)
+                Daily AI command limit
               </label>
               <input
                 id="dailyLimit"
                 type="number"
                 min={1}
-                max={200}
+                max={500}
                 value={settings.dailyAICommandLimit}
                 onChange={(e) => setSettings((s) => ({ ...s, dailyAICommandLimit: Number(e.target.value) }))}
                 className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
               />
             </div>
+            <div>
+              <label htmlFor="dailyGenLimit" className="block text-sm font-medium text-slate-700">
+                Daily itinerary generations
+              </label>
+              <input
+                id="dailyGenLimit"
+                type="number"
+                min={1}
+                max={50}
+                value={settings.dailyItineraryGenerationLimit}
+                onChange={(e) => setSettings((s) => ({ ...s, dailyItineraryGenerationLimit: Number(e.target.value) }))}
+                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            </div>
             <button
               type="submit"
-              className="sm:col-span-2 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+              className="sm:col-span-3 rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white hover:bg-brand-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
             >
               Save settings
             </button>
           </form>
+        </section>
+
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="font-semibold text-slate-900">Place reports</h2>
+          <p className="mt-1 text-sm text-slate-600">Submitted via &ldquo;Report incorrect info&rdquo; (FR-10.3).</p>
+          {placeReports.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No reports yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-slate-100 text-sm">
+              {placeReports.map((r) => (
+                <li key={r.id} className="py-2">
+                  <span className="font-medium text-slate-900">{r.placeName}</span>{" "}
+                  <span className="text-slate-500">— {new Date(r.createdAt).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="mt-6 rounded-xl border border-slate-200 bg-white p-4">
+          <h2 className="font-semibold text-slate-900">Admin audit log</h2>
+          <p className="mt-1 text-sm text-slate-600">Every administrator action, with who and when (FR-11.5).</p>
+          {auditLog.length === 0 ? (
+            <p className="mt-2 text-sm text-slate-500">No admin actions recorded yet.</p>
+          ) : (
+            <ul className="mt-2 divide-y divide-slate-100 text-sm">
+              {auditLog.map((entry) => (
+                <li key={entry.id} className="py-2">
+                  <span className="font-medium text-slate-900">{entry.action}</span>
+                  <span className="text-slate-500"> — {entry.detail} · {new Date(entry.createdAt).toLocaleString()}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       </main>
       <Footer />

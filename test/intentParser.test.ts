@@ -96,6 +96,11 @@ describe("parseIntent", () => {
     expect(intent.type).toBe("placesQuestion");
   });
 
+  it("parses a naturally-phrased places question", () => {
+    const intent = parseIntent("where do i eat if i want italian");
+    expect(intent.type).toBe("placesQuestion");
+  });
+
   it("falls back to unknown for an unsupported request", () => {
     const intent = parseIntent("Book me a flight to Mars");
     expect(intent.type).toBe("unknown");

@@ -1,9 +1,11 @@
 import {
+  AdminAuditEntry,
   AICommandLog,
   AppSettings,
   Expense,
   Feedback,
   Itinerary,
+  PlaceReport,
   Trip,
   TripMemory,
   User,
@@ -22,6 +24,10 @@ export interface AppData {
   settings: AppSettings;
   sessionUserId: string | null;
   aiCommandCountsByDay: Record<string, number>; // "userId:yyyy-mm-dd" -> count
+  itineraryGenerationCountsByDay: Record<string, number>; // "userId:yyyy-mm-dd" -> count
+  placeReports: PlaceReport[];
+  adminAuditLog: AdminAuditEntry[];
+  loginAttempts: Record<string, { count: number; lockedUntil: string | null }>; // keyed by email
 }
 
 const STORAGE_KEY = "ai-travel-companion:data:v1";
@@ -39,11 +45,25 @@ function buildFreshData(): AppData {
     settings: { ...DEFAULT_APP_SETTINGS },
     sessionUserId: null,
     aiCommandCountsByDay: {},
+    itineraryGenerationCountsByDay: {},
+    placeReports: [],
+    adminAuditLog: [],
+    loginAttempts: {},
   };
 }
 
 function isBrowser(): boolean {
   return typeof window !== "undefined";
+}
+
+function withPreferenceDefaults(user: User): User {
+  return {
+    ...user,
+    preferences: {
+      ...user.preferences,
+      dietaryNeeds: user.preferences?.dietaryNeeds ?? "",
+    },
+  };
 }
 
 export function readData(): AppData {
@@ -55,7 +75,7 @@ export function readData(): AppData {
       writeData(fresh);
       return fresh;
     }
-    const parsed = JSON.parse(raw) as AppData;
+    const parsed = JSON.parse(raw) as Partial<AppData>;
     // Defensive defaults in case of a stale shape from an older demo run.
     return {
       trips: parsed.trips ?? [],
@@ -64,10 +84,16 @@ export function readData(): AppData {
       memories: parsed.memories ?? [],
       commandLogs: parsed.commandLogs ?? [],
       feedback: parsed.feedback ?? [],
-      users: parsed.users?.length ? parsed.users : DEMO_USERS.map((u) => ({ ...u })),
-      settings: parsed.settings ?? { ...DEFAULT_APP_SETTINGS },
+      users: parsed.users?.length
+        ? parsed.users.map(withPreferenceDefaults)
+        : DEMO_USERS.map((u) => ({ ...u })),
+      settings: { ...DEFAULT_APP_SETTINGS, ...parsed.settings },
       sessionUserId: parsed.sessionUserId ?? null,
       aiCommandCountsByDay: parsed.aiCommandCountsByDay ?? {},
+      itineraryGenerationCountsByDay: parsed.itineraryGenerationCountsByDay ?? {},
+      placeReports: parsed.placeReports ?? [],
+      adminAuditLog: parsed.adminAuditLog ?? [],
+      loginAttempts: parsed.loginAttempts ?? {},
     };
   } catch {
     return buildFreshData();

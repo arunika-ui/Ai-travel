@@ -69,6 +69,15 @@ export interface Destination {
   blurb: string;
 }
 
+export type CollaboratorRole = "editor" | "viewer";
+
+export interface Collaborator {
+  id: string;
+  email: string;
+  role: CollaboratorRole;
+  invitedAt: string;
+}
+
 export interface Trip {
   id: string;
   title: string;
@@ -83,6 +92,7 @@ export interface Trip {
   status: TripStatus;
   ownerId: string;
   createdAt: string;
+  collaborators?: Collaborator[];
 }
 
 export interface Activity {
@@ -168,6 +178,7 @@ export interface User {
     pace: Pace;
     budgetLevel: "budget" | "mid" | "luxury";
     interests: PlaceCategory[];
+    dietaryNeeds: string;
   };
   active: boolean;
 }
@@ -175,4 +186,22 @@ export interface User {
 export interface AppSettings {
   maxToolCallsPerCommand: number;
   dailyAICommandLimit: number;
+  dailyItineraryGenerationLimit: number;
+}
+
+export interface PlaceReport {
+  id: string;
+  placeId: string;
+  placeName: string;
+  tripId: string;
+  note: string;
+  createdAt: string;
+}
+
+export interface AdminAuditEntry {
+  id: string;
+  adminId: string;
+  action: string;
+  detail: string;
+  createdAt: string;
 }

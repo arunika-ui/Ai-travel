@@ -4,7 +4,9 @@ import { useState } from "react";
 import { nanoid } from "nanoid";
 import { Activity, DayPlan, Place, PlaceCategory, Trip } from "@/lib/trips/types";
 import { searchPlaces } from "@/lib/tools/searchPlaces";
+import { getPlaceDetails } from "@/lib/tools/getPlaceDetails";
 import { saveNewVersion } from "@/lib/trips/itinerary";
+import { reportPlace } from "@/lib/trips/report";
 
 const CATEGORIES: PlaceCategory[] = [
   "heritage", "museum", "lake", "beach", "food", "cafe", "market", "adventure", "nature", "temple", "nightlife", "shopping",
@@ -134,11 +136,48 @@ export function PlacesSearch({
             </div>
             <p className="text-sm text-slate-600">{place.description}</p>
             <p className="text-xs text-slate-400 capitalize">{place.category} · {place.indoor ? "Indoor" : "Outdoor"}</p>
+            <PlaceDetailsFooter tripId={trip.id} place={place} />
             <AddToDayControl days={days} onAdd={(dayNumber, timeOfDay) => handleAdd(place, dayNumber, timeOfDay)} />
           </li>
         ))}
         {results.length === 0 && <p className="text-sm text-slate-500">Search above to see places in {trip.destination}.</p>}
       </ul>
+    </div>
+  );
+}
+
+function PlaceDetailsFooter({ tripId, place }: { tripId: string; place: Place }) {
+  const [reported, setReported] = useState(false);
+  const details = getPlaceDetails.execute({ placeId: place.id });
+  if (!details) return null;
+
+  function handleReport() {
+    reportPlace(tripId, place.id, place.name, "Reported from places search");
+    setReported(true);
+  }
+
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-3 text-xs text-slate-500">
+      <span>Open {details.openingHoursText}</span>
+      <a
+        href={details.directionsUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="font-medium text-brand-700 underline"
+      >
+        Directions
+      </a>
+      {reported ? (
+        <span className="text-green-700">Reported — thanks</span>
+      ) : (
+        <button
+          type="button"
+          onClick={handleReport}
+          className="font-medium text-slate-500 underline hover:text-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+        >
+          Report incorrect info
+        </button>
+      )}
     </div>
   );
 }

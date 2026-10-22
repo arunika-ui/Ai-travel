@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { SiteHeader } from "@/components/layout/SiteHeader";
 import { Footer } from "@/components/layout/Footer";
 import { login } from "@/lib/trips/auth";
@@ -14,22 +15,23 @@ export default function LoginPage() {
 
   function handleLogin(e: React.FormEvent, overrideEmail?: string, overridePassword?: string) {
     e.preventDefault();
-    const user = login(overrideEmail ?? email, overridePassword ?? password);
-    if (!user) {
-      setError("Email or password is incorrect. Use one of the demo accounts below.");
+    setError(null);
+    const result = login(overrideEmail ?? email, overridePassword ?? password);
+    if (!result.user) {
+      setError(result.error ?? "Email or password is incorrect.");
       return;
     }
-    router.push(user.role === "admin" ? "/admin" : "/dashboard");
+    router.push(result.user.role === "admin" ? "/admin" : "/dashboard");
   }
 
   return (
     <>
       <SiteHeader />
       <main id="main-content" className="mx-auto max-w-md px-4 py-10">
-        <h1 className="text-2xl font-bold text-slate-900">Log in</h1>
-        <p className="mt-1 text-sm text-slate-600">
-          This is a demo — no real authentication. Use the one-tap buttons or the sample
-          credentials below.
+        <h1 className="font-serif text-3xl text-ink">Log in</h1>
+        <p className="mt-1 text-sm text-ink/70">
+          This is a prototype — accounts and sessions live only in this browser&apos;s local
+          storage. Use the one-tap buttons or the sample credentials below.
         </p>
 
         <div className="mt-6 space-y-2">
@@ -94,6 +96,15 @@ export default function LoginPage() {
             Log in manually
           </button>
         </form>
+
+        <div className="mt-6 flex justify-between text-sm">
+          <Link href="/signup" className="font-medium text-brand-700 underline">
+            Create an account
+          </Link>
+          <Link href="/forgot-password" className="font-medium text-brand-700 underline">
+            Forgot password?
+          </Link>
+        </div>
       </main>
       <Footer />
     </>

@@ -26,6 +26,10 @@ export function ItineraryView({
 
   return (
     <div className="space-y-4">
+      <p className="rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-700">
+        <span className="font-semibold">AI-generated plan.</span> Confirm opening hours and prices
+        before you travel.
+      </p>
       <BudgetBar spent={total} budget={trip.budget} />
 
       <div role="tablist" aria-label="Itinerary days" className="flex flex-wrap gap-2">

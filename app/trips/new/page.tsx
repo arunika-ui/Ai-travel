@@ -15,7 +15,7 @@ export default function NewTripPage() {
             <h1 className="text-2xl font-bold text-slate-900">Plan a new trip</h1>
             <p className="mt-1 text-slate-600">Pick a destination and we&apos;ll build a day-by-day itinerary.</p>
             <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-              <TripForm ownerId={user.id} />
+              <TripForm user={user} />
             </div>
           </main>
           <Footer />

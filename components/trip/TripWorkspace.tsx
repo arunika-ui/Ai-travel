@@ -21,7 +21,13 @@ import { ExpensesTab } from "@/components/expenses/ExpensesTab";
 import { PlacesSearch } from "@/components/places/PlacesSearch";
 import { ShareButton } from "@/components/trip/ShareButton";
 import { FeedbackPanel } from "@/components/trip/FeedbackPanel";
+import { CollaboratorsPanel } from "@/components/trip/CollaboratorsPanel";
 import { AgentStep } from "@/lib/ai/TravelAgent";
+import { deleteTrip, duplicateTrip } from "@/lib/trips/tripLifecycle";
+import { getCurrentUser } from "@/lib/trips/auth";
+import { getGenerationCountToday, incrementGenerationCountToday } from "@/lib/trips/usageLimits";
+import { getSettings } from "@/lib/trips/settings";
+import { getWeatherForecast } from "@/lib/mock-data/weather";
 
 type Tab = "itinerary" | "map" | "expenses" | "chat" | "memory" | "history";
 
@@ -33,6 +39,9 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
   const [tab, setTab] = useState<Tab>("itinerary");
   const [generating, setGenerating] = useState(false);
   const [steps, setSteps] = useState<AgentStep[]>([]);
+  const [generationLimitReached, setGenerationLimitReached] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [weatherWarningDismissed, setWeatherWarningDismissed] = useState(false);
   const triggeredAuto = useRef(false);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -58,6 +67,16 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
   }, [trip, days, searchParams]);
 
   async function handleGenerate(targetTrip: Trip) {
+    const user = getCurrentUser();
+    if (user) {
+      const settings = getSettings();
+      if (getGenerationCountToday(user.id) >= settings.dailyItineraryGenerationLimit) {
+        setGenerationLimitReached(true);
+        return;
+      }
+      incrementGenerationCountToday(user.id);
+    }
+
     setGenerating(true);
     setSteps([]);
     await tripRepository.save({ ...targetTrip, status: "GENERATING" });
@@ -97,6 +116,21 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
     setDays(newDays);
   }
 
+  async function handleDeleteTrip() {
+    deleteTrip(tripId);
+    router.push("/dashboard");
+  }
+
+  async function handleDuplicateTrip() {
+    if (!trip) return;
+    const copy = duplicateTrip(trip);
+    router.push(`/trips/${copy.id}`);
+  }
+
+  function handleCollaboratorsUpdated(updated: Trip) {
+    setTrip(updated);
+  }
+
   if (trip === undefined) {
     return <div className="mx-auto max-w-2xl px-4 py-10 text-center text-slate-500">Loading trip...</div>;
   }
@@ -115,6 +149,11 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
   const destination = getDestination(trip.destination);
   const readOnly = isReadOnly(status);
 
+  const todayForecast =
+    status === "ONGOING" && !weatherWarningDismissed ? getWeatherForecast(trip.destination, new Date().toISOString().slice(0, 10)) : null;
+  const showWeatherWarning =
+    todayForecast && (todayForecast.condition === "Thunderstorm" || todayForecast.rainChance >= 70 || todayForecast.tempC >= 38);
+
   return (
     <div className="mx-auto max-w-5xl px-4 py-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -125,9 +164,24 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
             {trip.budget.toLocaleString("en-IN")}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>
           {days && <ShareButton trip={trip} days={days} />}
+          {!readOnly && <CollaboratorsPanel trip={trip} onUpdated={handleCollaboratorsUpdated} />}
+          {!readOnly && (
+            <button
+              onClick={() => router.push(`/trips/${trip.id}/edit`)}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+            >
+              Edit trip
+            </button>
+          )}
+          <button
+            onClick={handleDuplicateTrip}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:border-brand-400 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500"
+          >
+            Duplicate
+          </button>
           {canCancel(trip) && (
             <button
               onClick={handleCancelTrip}
@@ -136,8 +190,44 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
               Cancel trip
             </button>
           )}
+          {!confirmingDelete ? (
+            <button
+              onClick={() => setConfirmingDelete(true)}
+              className="rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-500"
+            >
+              Delete
+            </button>
+          ) : (
+            <span className="flex items-center gap-1 text-sm">
+              <button onClick={handleDeleteTrip} className="rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white">
+                Confirm delete
+              </button>
+              <button onClick={() => setConfirmingDelete(false)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-700">
+                Cancel
+              </button>
+            </span>
+          )}
         </div>
       </div>
+
+      {showWeatherWarning && todayForecast && (
+        <div className="mt-4 flex items-center justify-between gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>
+            Weather update: today looks like {todayForecast.condition.toLowerCase()}
+            {todayForecast.tempC >= 38 ? ` and hot (${todayForecast.tempC}°C)` : ""}. Consider adjusting today&apos;s plan in AI Chat.
+          </span>
+          <button onClick={() => setWeatherWarningDismissed(true)} className="font-medium underline">
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {generationLimitReached && (
+        <div role="alert" className="mt-4 rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700">
+          You&apos;ve reached today&apos;s itinerary generation limit for this demo (BR-9). Try
+          again tomorrow, or raise the limit in Admin settings.
+        </div>
+      )}
 
       {(generating || trip.status === "GENERATING") && <div className="mt-6"><GenerationProgress steps={steps} active={generating} /></div>}
 

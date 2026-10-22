@@ -13,6 +13,7 @@ export const DEMO_USERS: User[] = [
       pace: "relaxed",
       budgetLevel: "mid",
       interests: ["heritage", "food"],
+      dietaryNeeds: "Vegetarian",
     },
     active: true,
   },
@@ -28,6 +29,7 @@ export const DEMO_USERS: User[] = [
       pace: "moderate",
       budgetLevel: "mid",
       interests: ["heritage"],
+      dietaryNeeds: "",
     },
     active: true,
   },
@@ -43,12 +45,16 @@ export const DEMO_USERS: User[] = [
       pace: "packed",
       budgetLevel: "budget",
       interests: ["adventure", "nature"],
+      dietaryNeeds: "",
     },
     active: true,
   },
 ];
 
+// Defaults match BR-9 in the SRS: 50 AI commands and 5 itinerary
+// generations per user per day, both admin-configurable (FR-11.4).
 export const DEFAULT_APP_SETTINGS: AppSettings = {
   maxToolCallsPerCommand: 5,
-  dailyAICommandLimit: 20,
+  dailyAICommandLimit: 50,
+  dailyItineraryGenerationLimit: 5,
 };

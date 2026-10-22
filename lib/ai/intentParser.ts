@@ -39,7 +39,12 @@ export function parseIntent(text: string): Intent {
     return { type: "spendingQuestion", category: categoryMatch?.[1] ?? null };
   }
 
-  if (/suggest|recommend|find|near|places? (for|to)/.test(t) && !/swap|replace|add|remove|move/.test(t)) {
+  if (
+    /suggest|recommend|find|near|places? (for|to)|where (can|do|should|to) i (eat|stay|go|shop|sleep)|where to (eat|stay|go|shop)|any (good )?(restaurants|cafes|places|recommendations)|what (restaurants|cafes|places)|good (places|restaurants|cafes)|best (places|restaurants|cafes)/.test(
+      t
+    ) &&
+    !/swap|replace|add|remove|move/.test(t)
+  ) {
     return { type: "placesQuestion", query: text.trim() };
   }
 

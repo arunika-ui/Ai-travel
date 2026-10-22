@@ -6,7 +6,7 @@ import { nanoid } from "nanoid";
 import clsx from "clsx";
 import { tripInputSchema } from "@/lib/validation/schemas";
 import { DESTINATIONS } from "@/lib/mock-data/destinations";
-import { Pace, PlaceCategory, Trip } from "@/lib/trips/types";
+import { Pace, PlaceCategory, Trip, User } from "@/lib/trips/types";
 import { tripRepository } from "@/lib/data/TripRepository";
 
 const INTEREST_OPTIONS: PlaceCategory[] = [
@@ -16,7 +16,7 @@ const INTEREST_OPTIONS: PlaceCategory[] = [
 const today = new Date().toISOString().slice(0, 10);
 const defaultEnd = new Date(Date.now() + 3 * 86400000).toISOString().slice(0, 10);
 
-export function TripForm({ ownerId }: { ownerId: string }) {
+export function TripForm({ user }: { user: User }) {
   const router = useRouter();
   const [title, setTitle] = useState("");
   const [destination, setDestination] = useState(DESTINATIONS[0].id);
@@ -24,8 +24,10 @@ export function TripForm({ ownerId }: { ownerId: string }) {
   const [endDate, setEndDate] = useState(defaultEnd);
   const [travelers, setTravelers] = useState(2);
   const [budget, setBudget] = useState(20000);
-  const [interests, setInterests] = useState<PlaceCategory[]>([]);
-  const [pace, setPace] = useState<Pace>("moderate");
+  // FR-2.2/FR-2.3: pre-filled from the traveler's saved preferences; can be
+  // freely overridden here without changing the saved profile (FR-2.4).
+  const [interests, setInterests] = useState<PlaceCategory[]>(user.preferences.interests);
+  const [pace, setPace] = useState<Pace>(user.preferences.pace);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -72,7 +74,7 @@ export function TripForm({ ownerId }: { ownerId: string }) {
       interests: result.data.interests as PlaceCategory[],
       pace: result.data.pace,
       status: "DRAFT",
-      ownerId,
+      ownerId: user.id,
       createdAt: new Date().toISOString(),
     };
     await tripRepository.save(trip);
@@ -162,6 +164,9 @@ export function TripForm({ ownerId }: { ownerId: string }) {
 
       <fieldset>
         <legend className="block text-sm font-medium text-slate-700">Interests</legend>
+        <p className="text-xs text-slate-500">
+          Pre-filled from your profile — change them for just this trip any time.
+        </p>
         <div className="mt-2 flex flex-wrap gap-2">
           {INTEREST_OPTIONS.map((interest) => {
             const active = interests.includes(interest);
