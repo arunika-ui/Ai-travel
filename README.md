@@ -1,95 +1,163 @@
 # AI Travel Companion
 
-An AI-assisted trip planner built with Next.js 14 (App Router), TypeScript, and
-Tailwind CSS. Create a trip, generate a day-by-day itinerary with an AI agent
-that calls live weather/places/geocoding tools, chat with the agent to tweak
-the plan, track expenses with currency conversion, view each day on a map,
-and share a read-only link — all with zero database setup.
+A software engineering lab demo: an AI-assisted trip planner that runs
+**entirely in the browser** from built-in sample data. No API keys, no
+backend services, no database, no paid APIs. The only external calls are
+free OpenStreetMap map tiles — if those fail to load, the rest of the app
+still works.
 
-## Features
+## What it does
 
-- **Create Trip form** — destination, dates (1–30 days), travelers (1–10),
-  budget (₹1,000–₹5,00,000), interests, and pace, validated on both the
-  client and the server.
-- **AI itinerary generation** — a server route calls OpenAI (`gpt-4o-mini`)
-  with tool calling (`getWeather` via Open-Meteo, `searchPlaces`/`geocode`
-  via OpenStreetMap Nominatim — no API keys needed for any of them). The
-  response streams progress updates to the UI and is validated against a
-  budget and no-overlapping-times rule before being accepted; the model is
-  asked to retry if it violates either.
-- **AI chat panel** — natural-language edits ("Day 2 evening may rain, swap
-  to something indoor") run an agent loop (up to 5 tool calls) and return an
-  updated itinerary plus a change summary. Every edit creates a new
-  itinerary version, and you can **Undo** back to the previous one.
-- **Map tab** — each day's activities are plotted with Leaflet/OpenStreetMap
-  tiles, connected in visit order.
-- **Expenses tab** — log amount + currency + category, auto-converted to INR
-  via `frankfurter.app`, totals by category, and an alert at 80% of budget.
-- **Share** — a read-only link that base64-encodes the trip (itinerary,
-  expenses, input) into the URL, so it opens without login or a server
-  lookup.
+- **Create a trip** against one of 5 destinations (Udaipur, Goa, Jaipur,
+  Manali, Rishikesh), with validated dates, travelers, budget, interests
+  and pace.
+- **Generates a day-by-day itinerary** with a simulated AI agent
+  (`MockTravelAgent`) that picks real sample places, checks a deterministic
+  weather forecast, keeps lunch/dinner stops, avoids overlapping times, and
+  fits the plan to budget — showing step-by-step "thinking" messages as it
+  works. A single day can be regenerated on its own.
+- **AI chat panel** — the main demo feature. Type commands like *"Day 2
+  evening may rain, swap to something indoor"* and the agent parses the
+  intent, "calls" up to 5 simulated tools, updates the itinerary (with
+  Undo), and remembers lasting preferences. Weather/spending/places
+  questions get answered without changing the plan. Everything is labeled
+  **"Demo mode: simulated AI"** — no LLM is involved.
+- **Map** of each day's activities (Leaflet + OpenStreetMap, numbered pins
+  joined in visiting order), plus a places search to add a result straight
+  to a chosen day.
+- **Expenses** — add/edit/delete, converted to the trip currency with a
+  fixed rate table, totals by category and by day, an 80%/100% budget
+  alert, and CSV export.
+- **Read-only share links** — `/share/<code>` encodes the itinerary with
+  `lz-string` into the URL itself, so it opens with no login and no server
+  lookup (expenses and AI memory are left out of the link on purpose).
+- **Feedback** — 1–5 star rating on completed trips, thumbs up/down on
+  individual AI replies.
+- **Admin console** (`admin@demo.com`) — users with suspend/activate, trips
+  created, AI commands per day, most-used tools, average rating, and the
+  "max tool calls per command" / "daily AI command limit" settings that the
+  chat agent actually enforces.
 
-Trips are stored in `localStorage` behind a small `TripRepository`
-interface (`lib/storage/tripRepository.ts`) so a Supabase-backed
-implementation can be dropped in later without touching UI code.
+## Demo accounts
 
-The app is mobile-first and aims for WCAG AA: labeled form fields, visible
-focus rings, `aria-live` status regions, `role="alert"` on errors, and
-keyboard-operable tabs.
+Shown on the login page with one-tap buttons:
+- Traveler: `riya@demo.com` / `demo123`
+- Admin: `admin@demo.com` / `admin123`
 
-## Setup
+Riya's account comes pre-loaded with 4 trips, dated **relative to today** so
+their status always looks right: an upcoming Udaipur trip (day 2 is always
+forecast 70% evening rain — see "Demo script" below), an ongoing Goa trip
+near its budget limit, a completed Jaipur trip, and a draft Manali trip
+with no itinerary yet. **Settings → Reset demo data** restores all of this
+at any time.
+
+## Demo script (6–8 steps for a viva)
+
+1. **Log in** as the demo traveler (one-tap button on `/login`).
+2. **Dashboard** — point out the status groups (Ongoing / Upcoming / Past)
+   and that Goa shows a budget warning badge.
+3. Open **Udaipur Heritage Getaway** → **Itinerary** tab. Show Day 2's
+   timeline and the weather strip ("Rain, 70% evening chance").
+4. Go to the **AI Chat** tab and send: *"Day 2 evening may rain, swap to
+   something indoor."* Watch the simulated tool calls appear
+   (`🔧 getWeather()`, `🔧 searchPlaces()`), then the before/after reply and
+   the **Undo** button. Click into the **Memory** tab to show the
+   "Remembered: prefers indoor evenings on rainy nights" entry it saved.
+5. In chat, try *"Fit the plan into ₹20,000"* to show budget-aware editing,
+   then *"What's the weather on day 2?"* to show a question that doesn't
+   change the plan.
+6. Open the **Map** tab, use **Search places** (e.g. category = food,
+   indoor only) and add a result straight to Day 3.
+7. Go to **Expenses**, add one, and point out the category/day bars and the
+   budget alert.
+8. Click **Share read-only link**, open it in a private tab to show it
+   loads with no login, then switch to the **admin@demo.com** account to
+   show the AI-commands chart, most-used tools, and the settings that
+   control the chat agent's tool-call/daily-command limits.
+
+## Tech stack
+
+Next.js 14 (App Router) · TypeScript (strict) · Tailwind CSS · Zod ·
+Leaflet + react-leaflet · lz-string · Vitest.
+
+## Architecture
+
+```
+app/            Pages (routes)
+components/     UI, grouped by feature (layout, dashboard, trip,
+                itinerary, chat, expenses, places, ui)
+lib/trips/      Trip/itinerary/expense/memory/commandLog/share domain logic
+lib/ai/         TravelAgent interface + MockTravelAgent + intent parser
+lib/tools/      5 AITool implementations (name, description, zod params,
+                execute()): getWeather, searchPlaces, getRoute,
+                convertCurrency, getItinerary
+lib/mock-data/  All built-in sample data (destinations, weather, currency,
+                users, seed trips)
+lib/data/       TripRepository interface + localStorage implementation
+lib/validation/ Zod schemas + business rules (overlap, budget, status)
+test/           Vitest unit tests
+```
+
+See **`PROJECT_GUIDE.md`** for a file-by-file explanation of everything
+above — useful if you're presenting the code itself.
+
+### How the simulated AI works
+
+`MockTravelAgent` (in `lib/ai/MockTravelAgent.ts`) implements the
+`TravelAgent` interface with **no LLM at all**: a regex/keyword
+`intentParser` classifies each chat message, the agent then calls into the
+5 tools in `lib/tools/` (each reading from the sample data in
+`lib/mock-data/`), applies the result with the same overlap/budget rules
+used at itinerary-generation time, and returns a reply + optional updated
+itinerary. The "🔧 tool() → result" lines in chat are literally the steps
+the agent took, not decoration.
+
+### Swapping in a real LLM later
+
+Because everything goes through the `TravelAgent` interface
+(`generateItinerary`, `handleCommand`), a real implementation (e.g. one
+that calls an LLM with function/tool calling against the same 5
+`AITool`s) can replace `MockTravelAgent` without any UI changes — just
+change what `components/trip/TripWorkspace.tsx` and
+`components/chat/ChatPanel.tsx` import.
+
+### Swapping in a real backend later
+
+All persistence goes through `lib/data/TripRepository.ts`'s
+`TripRepository` interface, currently backed by
+`LocalStorageTripRepository`. A Supabase-backed implementation can
+replace it without touching any component, and the other domain modules
+in `lib/trips/` would move the same way.
+
+## Local setup
 
 ```bash
 npm install
-cp .env.example .env.local
-# edit .env.local and set OPENAI_API_KEY
-npm run dev
+npm run dev      # http://localhost:3000
+npm run build    # production build
+npm run lint
+npm test          # Vitest
 ```
 
-Open http://localhost:3000.
-
-### Environment variables
-
-| Variable | Required | Notes |
-| --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | Used only server-side (API routes); never sent to the client. |
-
-No other service requires a key: Open-Meteo, OpenStreetMap Nominatim, and
-frankfurter.app are all called without credentials.
+No `.env` file is needed for this demo build.
 
 ## Deploying to Vercel
 
-1. Push this repo to GitHub (already done if you're reading this on GitHub).
-2. Import the repo in Vercel.
-3. Add one environment variable: `OPENAI_API_KEY`.
-4. Deploy — no build configuration changes are needed.
+Import the repository and deploy — **no environment variables, no build
+configuration changes**. Vercel deploys from `main`.
 
-## Project structure
+## Known limitations
 
-```
-app/
-  page.tsx                 Home — Create Trip form
-  trip/[id]/page.tsx        Trip workspace (itinerary/map/expenses/chat)
-  trips/page.tsx            Saved trips (from localStorage)
-  share/[code]/page.tsx     Read-only shared trip view
-  api/itinerary/route.ts    Streaming itinerary generation (OpenAI + tools)
-  api/chat/route.ts         Chat-driven itinerary edits (agent loop)
-components/                 UI components
-lib/
-  agent.ts                  OpenAI tool-calling loop shared by both routes
-  itinerary.ts               Prompting + budget/overlap validation
-  tools/                     getWeather, geocode, searchPlaces implementations
-  storage/tripRepository.ts  localStorage data layer (swappable for Supabase)
-  currency.ts                frankfurter.app INR conversion
-  share.ts                   Share-link encode/decode
-```
-
-## Notes & limitations
-
-- Weather forecasts beyond Open-Meteo's forecast window fall back gracefully
-  (the itinerary still generates; the weather note is simply omitted).
-- Nominatim is a shared public service with light rate limits; the app sends
-  a descriptive `User-Agent` and keeps tool calls bounded (max 8 during
-  generation, max 5 during a chat edit).
-- Because trips live in `localStorage`, they're per-browser. Share links
-  work across browsers/devices since the trip data is encoded in the URL.
+- Weather, places and hotels are a small curated sample per city, not a
+  real catalogue — good enough to make the itinerary and chat demos
+  realistic, not exhaustive.
+- "Routing" (`getRoute`) is a straight-line distance estimate, not real
+  road routing.
+- Map tiles are the only external network call; if they fail to load
+  (offline demo, blocked network) the map area shows normally but tiles
+  may be blank — everything else keeps working.
+- Trips, expenses, memory and command history live in this browser's
+  `localStorage` only; they are not synced across devices (a share link is
+  the way to show a trip elsewhere).
+- Admin stats are computed from whatever is currently in local storage, so
+  "Reset demo data" also resets the admin dashboards.

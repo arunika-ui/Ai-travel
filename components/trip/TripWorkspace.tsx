@@ -17,9 +17,13 @@ import { MapPanel } from "@/components/itinerary/MapPanel";
 import { ChatPanel } from "@/components/chat/ChatPanel";
 import { MemoryPanel } from "@/components/chat/MemoryPanel";
 import { CommandHistory } from "@/components/chat/CommandHistory";
+import { ExpensesTab } from "@/components/expenses/ExpensesTab";
+import { PlacesSearch } from "@/components/places/PlacesSearch";
+import { ShareButton } from "@/components/trip/ShareButton";
+import { FeedbackPanel } from "@/components/trip/FeedbackPanel";
 import { AgentStep } from "@/lib/ai/TravelAgent";
 
-type Tab = "itinerary" | "map" | "chat" | "memory" | "history";
+type Tab = "itinerary" | "map" | "expenses" | "chat" | "memory" | "history";
 
 export function TripWorkspace({ tripId }: { tripId: string }) {
   const router = useRouter();
@@ -123,6 +127,7 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
         </div>
         <div className="flex items-center gap-2">
           <Badge className={STATUS_COLORS[status]}>{STATUS_LABELS[status]}</Badge>
+          {days && <ShareButton trip={trip} days={days} />}
           {canCancel(trip) && (
             <button
               onClick={handleCancelTrip}
@@ -173,11 +178,23 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
             {tab === "itinerary" && (
               <ItineraryView trip={trip} days={days} readOnly={readOnly} onRegenerateDay={readOnly ? undefined : handleRegenerateDay} />
             )}
-            {tab === "map" && <MapPanel days={days} />}
+            {tab === "map" && (
+              <div className="space-y-4">
+                <MapPanel days={days} />
+                {!readOnly && <PlacesSearch trip={trip} days={days} onDaysUpdated={handleDaysUpdated} />}
+              </div>
+            )}
+            {tab === "expenses" && !readOnly && <ExpensesTab trip={trip} />}
             {tab === "chat" && !readOnly && <ChatPanel trip={trip} days={days} onDaysUpdated={handleDaysUpdated} />}
             {tab === "memory" && !readOnly && <MemoryPanel tripId={trip.id} />}
             {tab === "history" && !readOnly && <CommandHistory tripId={trip.id} />}
           </div>
+
+          {readOnly && status === "COMPLETED" && (
+            <div className="mt-4">
+              <FeedbackPanel trip={trip} />
+            </div>
+          )}
         </>
       )}
     </div>
@@ -190,7 +207,7 @@ function tabList(readOnly: boolean): [Tab, string][] {
     ["map", "Map"],
   ];
   if (readOnly) return base;
-  return [...base, ["chat", "AI Chat"], ["memory", "Memory"], ["history", "History"]];
+  return [...base, ["expenses", "Expenses"], ["chat", "AI Chat"], ["memory", "Memory"], ["history", "History"]];
 }
 
 function delay(ms: number): Promise<void> {
