@@ -14,9 +14,12 @@ import { Badge } from "@/components/ui/Badge";
 import { GenerationProgress } from "@/components/trip/GenerationProgress";
 import { ItineraryView } from "@/components/itinerary/ItineraryView";
 import { MapPanel } from "@/components/itinerary/MapPanel";
+import { ChatPanel } from "@/components/chat/ChatPanel";
+import { MemoryPanel } from "@/components/chat/MemoryPanel";
+import { CommandHistory } from "@/components/chat/CommandHistory";
 import { AgentStep } from "@/lib/ai/TravelAgent";
 
-type Tab = "itinerary" | "map";
+type Tab = "itinerary" | "map" | "chat" | "memory" | "history";
 
 export function TripWorkspace({ tripId }: { tripId: string }) {
   const router = useRouter();
@@ -28,6 +31,7 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
   const [steps, setSteps] = useState<AgentStep[]>([]);
   const triggeredAuto = useRef(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     load();
   }, [tripId]);
@@ -83,6 +87,10 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
     const updated: Trip = { ...trip, status: "CANCELLED" };
     await tripRepository.save(updated);
     setTrip(updated);
+  }
+
+  function handleDaysUpdated(newDays: DayPlan[]) {
+    setDays(newDays);
   }
 
   if (trip === undefined) {
@@ -166,6 +174,9 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
               <ItineraryView trip={trip} days={days} readOnly={readOnly} onRegenerateDay={readOnly ? undefined : handleRegenerateDay} />
             )}
             {tab === "map" && <MapPanel days={days} />}
+            {tab === "chat" && !readOnly && <ChatPanel trip={trip} days={days} onDaysUpdated={handleDaysUpdated} />}
+            {tab === "memory" && !readOnly && <MemoryPanel tripId={trip.id} />}
+            {tab === "history" && !readOnly && <CommandHistory tripId={trip.id} />}
           </div>
         </>
       )}
@@ -173,11 +184,13 @@ export function TripWorkspace({ tripId }: { tripId: string }) {
   );
 }
 
-function tabList(_readOnly: boolean): [Tab, string][] {
-  return [
+function tabList(readOnly: boolean): [Tab, string][] {
+  const base: [Tab, string][] = [
     ["itinerary", "Itinerary"],
     ["map", "Map"],
   ];
+  if (readOnly) return base;
+  return [...base, ["chat", "AI Chat"], ["memory", "Memory"], ["history", "History"]];
 }
 
 function delay(ms: number): Promise<void> {

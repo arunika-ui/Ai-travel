@@ -79,7 +79,7 @@ export function parseIntent(text: string): Intent {
     return { type: "pace", day: extractDay(t), direction: "pack" };
   }
 
-  if (/fit.*budget|cheaper|reduce cost|lower the cost|within ₹|within rs/.test(t)) {
+  if (/fit.*budget|fit.*into|cheaper|reduce cost|lower the cost|within ₹|within rs/.test(t)) {
     const amountMatch = t.match(BUDGET_AMOUNT_RE);
     const amount = amountMatch ? Number(amountMatch[1].replace(/,/g, "")) : null;
     return { type: "budget", amount };
