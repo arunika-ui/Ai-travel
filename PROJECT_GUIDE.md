@@ -1,8 +1,9 @@
 # AI Travel Companion — Project Guide
 
 This document explains the project for a viva/demo: what each folder and file
-does, in plain language. (This is Phase 1 of a 3-phase build; Phase 2 adds
-the AI chat panel, Phase 3 adds expenses/places/sharing/admin.)
+does, in plain language. All 3 build phases are complete: Phase 1 (core app
++ itinerary generation), Phase 2 (AI chat commands), Phase 3 (expenses,
+places search, sharing, feedback, admin console).
 
 ## How to run it
 
@@ -47,6 +48,8 @@ route.
 | `app/trips/[id]/page.tsx` | `/trips/<id>` | The trip workspace: status badge, itinerary tabs, map. This is where generation happens. |
 | `app/profile/page.tsx` | `/profile` | Edit the logged-in user's travel preferences (style, pace, budget level, interests). |
 | `app/settings/page.tsx` | `/settings` | "Reset demo data" button that restores the original seed trips. |
+| `app/share/[data]/page.tsx` | `/share/<code>` | Read-only itinerary view decoded from the URL itself (no login, no server lookup). |
+| `app/admin/page.tsx` | `/admin` | Admin-only console: users, trip/command stats, charts, and the AI agent's settings. |
 
 ## `components/` — UI building blocks
 
@@ -73,6 +76,22 @@ Grouped by what they're for:
 - `GenerationProgress.tsx` — the small "🔧 tool() → result" list shown while
   the AI companion is "thinking".
 
+**`components/chat/`** — the AI chat feature (Phase 2).
+- `ChatPanel.tsx` — the chat tab: runs `MockTravelAgent.handleCommand`,
+  shows each simulated tool call, applies itinerary changes with Undo,
+  saves "Remembered" facts, enforces the daily AI command limit from
+  `lib/trips/settings.ts`, and has thumbs up/down on each reply.
+- `MemoryPanel.tsx` — view/edit/delete what the AI has remembered for this trip.
+- `CommandHistory.tsx` — the full `AICommandLog` for this trip.
+
+**`components/expenses/`** (Phase 3)
+- `ExpensesTab.tsx` — add/edit/delete expenses, category/day totals as
+  simple bar charts, the budget bar/alert, and CSV export.
+
+**`components/places/`** (Phase 3)
+- `PlacesSearch.tsx` — search sample places by text/category/indoor-outdoor/
+  price and add a result straight into a chosen day of the itinerary.
+
 **`components/itinerary/`** — viewing a generated plan.
 - `ItineraryView.tsx` — day-tab switcher + budget bar, wraps `DayTimeline`.
 - `DayTimeline.tsx` — one day's activities as a timeline, with the weather
@@ -83,6 +102,11 @@ Grouped by what they're for:
   needs the browser, so this uses `next/dynamic` with `ssr: false`).
 - `MapView.tsx` — the actual Leaflet map: numbered pins for each activity,
   joined by a line in visiting order, OpenStreetMap tiles with attribution.
+
+**`components/trip/`** also has, from Phase 3:
+- `ShareButton.tsx` — encodes the trip + current itinerary and copies a
+  `/share/<code>` link to the clipboard.
+- `FeedbackPanel.tsx` — the 1-5 star + comment form shown on completed trips.
 
 **`components/ui/`** — tiny generic pieces (`Badge.tsx`, `EmptyState.tsx`).
 
@@ -160,8 +184,11 @@ package diagram you mentioned:
   schedules lunch/dinner, forces indoor activities when evening rain chance
   is high, and calls `fitToBudget` at the end. Also exports
   `regenerateDay()` for the single-day "Regenerate this day" button.
-- `intentParser.ts` — (Phase 2) turns free-text chat commands into a typed
-  `Intent` using keyword/regex matching — no LLM involved.
+- `intentParser.ts` — turns free-text chat commands into a typed `Intent`
+  using keyword/regex matching — no LLM involved. `MockTravelAgent.handleCommand`
+  switches on the `Intent` type (swap, add, remove, move, pace, budget,
+  weatherQuestion, spendingQuestion, placesQuestion, unknown) and calls the
+  tools below to carry it out, up to the configured max tool calls.
 
 **`lib/tools/`** — the five "AI tools", each a self-contained object with a
 `name`, `description`, Zod `params` schema and an `execute()` function (see
@@ -186,17 +213,14 @@ package diagram you mentioned:
   the `(7000, 7000, 2000) → 7000` tie case).
 - `currency.test.ts` — INR→INR identity, USD→INR and INR→USD at the fixed
   rate, and a cross-currency (EUR→USD) conversion.
+- `intentParser.test.ts` — one test per supported chat command (swap,
+  replace-cheaper, add, remove, move, relax pace, pack pace, budget-fit,
+  weather question, spending question, places question) plus an
+  unsupported-request fallback.
 
 Run them with `npm test`.
 
-## What's next (Phase 2 and 3, not yet built)
+## Demo script
 
-- **Phase 2**: the AI chat panel UI wired to `MockTravelAgent.handleCommand`
-  (swap/add/remove/move/pace/budget commands, weather/spending/places
-  questions), a "Remembered" chip + memory editor screen, and the command
-  history view.
-- **Phase 3**: the Expenses tab UI (CRUD + category/day totals + CSV
-  export), a places-search-on-the-map UI, the read-only share page, star
-  rating/feedback UI, and the admin console.
-
-These are tracked and will land as further commits to `main`.
+See the README's "Demo script" section for the 8-step walkthrough to use in
+a viva (starts with the Udaipur Day 2 rain → indoor swap).
